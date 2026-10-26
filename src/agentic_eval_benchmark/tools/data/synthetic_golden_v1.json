@@ -1,0 +1,82 @@
+{
+  "name": "synthetic-rag-reference",
+  "dataset_version": "1.0.0",
+  "schema_version": "1.0.0",
+  "description": "Synthetic Golden Dataset over the documentation of a fictional product, Aurora Cloud Storage. It covers eight RAG scenarios for smoke tests and offline CI; every fact is invented and self-contained.",
+  "samples": [
+    {
+      "sample_id": "ref-001-single-hop",
+      "question": "How many availability zones does Aurora Cloud Storage replicate each object to by default?",
+      "contexts": [
+        "By default, Aurora Cloud Storage replicates every object to three availability zones within the primary region. Cross-region replication is an opt-in feature billed separately."
+      ],
+      "ground_truth": "By default, Aurora Cloud Storage replicates every object to three availability zones within the primary region.",
+      "metadata": {"scenario": "single_hop_fact", "difficulty": "easy", "domain": "aurora-cloud-storage"}
+    },
+    {
+      "sample_id": "ref-002-numerical",
+      "question": "What is the maximum size of an object uploaded with a single PUT request?",
+      "contexts": [
+        "A single PUT request can upload an object of up to 5 GiB. Objects larger than 5 GiB must use multipart upload, which supports objects of up to 5 TiB."
+      ],
+      "ground_truth": "A single PUT request can upload an object of up to 5 GiB; larger objects of up to 5 TiB must use multipart upload.",
+      "metadata": {"scenario": "numerical_limit", "difficulty": "easy", "domain": "aurora-cloud-storage"}
+    },
+    {
+      "sample_id": "ref-003-multi-hop",
+      "question": "Which storage class should a team use for compliance archives that are read less than once a year?",
+      "contexts": [
+        "Compliance archives must use a storage class that supports Object Lock. Only the Standard and Glacier-Deep classes support Object Lock.",
+        "The Glacier-Deep class is designed for data accessed less than once a year and has a minimum storage duration of 180 days."
+      ],
+      "ground_truth": "Compliance archives must use a storage class that supports Object Lock, such as Glacier-Deep. The Glacier-Deep class is designed for data accessed less than once a year.",
+      "metadata": {"scenario": "multi_hop_reasoning", "difficulty": "hard", "domain": "aurora-cloud-storage"}
+    },
+    {
+      "sample_id": "ref-004-negation",
+      "question": "Can deleted objects be recovered after the retention window ends?",
+      "contexts": [
+        "Deleted objects remain recoverable from the trash for 30 days. After the 30-day retention window ends, deleted objects cannot be recovered."
+      ],
+      "ground_truth": "No. After the 30-day retention window ends, deleted objects cannot be recovered.",
+      "metadata": {"scenario": "negation_exception", "difficulty": "medium", "domain": "aurora-cloud-storage"}
+    },
+    {
+      "sample_id": "ref-005-temporal",
+      "question": "When does the legacy v1 API stop accepting requests?",
+      "contexts": [
+        "The legacy v1 API is deprecated and will stop accepting requests on 31 March 2027. Clients must migrate to the v2 API before that date."
+      ],
+      "ground_truth": "The legacy v1 API will stop accepting requests on 31 March 2027.",
+      "metadata": {"scenario": "temporal_fact", "difficulty": "easy", "domain": "aurora-cloud-storage"}
+    },
+    {
+      "sample_id": "ref-006-enumeration",
+      "question": "Which authentication methods does the Aurora API support?",
+      "contexts": [
+        "The Aurora API supports three authentication methods: API keys, OAuth 2.0 client credentials, and short-lived tokens issued by the identity service."
+      ],
+      "ground_truth": "The Aurora API supports API keys, OAuth 2.0 client credentials, and short-lived tokens issued by the identity service.",
+      "metadata": {"scenario": "enumeration", "difficulty": "medium", "domain": "aurora-cloud-storage"}
+    },
+    {
+      "sample_id": "ref-007-procedural",
+      "question": "How do I rotate an API key without downtime?",
+      "contexts": [
+        "To rotate an API key without downtime, create a new key, deploy it to all clients, and then revoke the old key. Revoking a key takes effect within 60 seconds."
+      ],
+      "ground_truth": "Create a new key, deploy it to all clients, and then revoke the old key.",
+      "metadata": {"scenario": "procedural_steps", "difficulty": "medium", "domain": "aurora-cloud-storage"}
+    },
+    {
+      "sample_id": "ref-008-comparison",
+      "question": "How does the Standard class differ from the Infrequent-Access class in retrieval cost?",
+      "contexts": [
+        "The Standard class has no retrieval fee and is intended for frequently accessed data.",
+        "The Infrequent-Access class charges a retrieval fee of $0.01 per GB in exchange for a lower monthly storage price."
+      ],
+      "ground_truth": "The Standard class has no retrieval fee. The Infrequent-Access class charges a retrieval fee of $0.01 per GB.",
+      "metadata": {"scenario": "comparison", "difficulty": "hard", "domain": "aurora-cloud-storage"}
+    }
+  ]
+}

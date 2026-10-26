@@ -43,6 +43,13 @@ scripts/audit-attribution.sh       # attribution audit of HEAD history
 - Pydantic v2 models: `model_config = ConfigDict(extra="forbid", frozen=True, strict=True)`.
 - Tests must be hermetic: no outbound network (pytest-socket enforced). Judges and RAG endpoints
   are mocked (pytest-httpx / fake judge LLMs); never call a real model provider in tests.
+- Provider judges (`tools.RagasJudge`, `tools.TruLensJudge`) take injected clients/backends; never
+  build them from ambient credentials. Hermetic code uses `tools.offline` (`ScriptedRagasLLM`,
+  `HashingEmbeddings`, `ScriptedTruLensProvider`) and `tools.StaticRAGClient`.
+- Importing `agentic_eval_benchmark.tools` pins Ragas/TruLens offline (`tools/_isolation.py`): Ragas
+  writes a user-ID file to the home dir *before* honoring `RAGAS_DO_NOT_TRACK`, so its data dir is
+  redirected under `XDG_DATA_HOME`. Keep TruLens groundedness on `use_sent_tokenize=False`: the NLTK
+  path calls `nltk.download` at runtime. Open TruLens state only via `tools.open_trulens_session()`.
 - `langchain-community` is constrained to `<0.4.2` in `pyproject.toml` because ragas 0.4.3 imports a
   module that release removed. Re-check before lifting it.
 - Conventional Commits, atomic. The blueprint order is: chore(config) → feat(schemas) → feat(core) →

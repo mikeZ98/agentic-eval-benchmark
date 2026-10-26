@@ -33,6 +33,11 @@ dependencies = [
   "pyarrow>=21",
 ]
 
+[project.optional-dependencies]
+# Anthropic judge models through ragas_llm(..., provider="anthropic"). Capped below 2.0:
+# that major release is days old and predates the instructor version ragas resolves.
+anthropic = ["anthropic>=0.70,<2"]
+
 [dependency-groups]
 dev = [
   "pytest>=8.4",
