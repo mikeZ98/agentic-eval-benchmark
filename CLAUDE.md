@@ -54,8 +54,13 @@ Settings families (disjoint prefixes): `EVAL_*` (BenchmarkSettings), `EVAL_API_*
 ## Conventions
 
 - Pydantic v2 models: `model_config = ConfigDict(extra="forbid", frozen=True, strict=True)`.
-- Tests must be hermetic: no outbound network (pytest-socket enforced). Judges and RAG endpoints
-  are mocked (pytest-httpx / fake judge LLMs); never call a real model provider in tests.
+- Tests must be hermetic: no outbound network (pytest-socket enforced). `tests/conftest.py`'s autouse
+  `hermetic_env` scrubs `EVAL_*`/provider/CI variables and pins runs, TruLens and Ragas state under
+  `tmp_path`. Use its fixtures: `make_run` (synthetic runs), `scripted_llm`/`embeddings`/
+  `trulens_provider` (in-memory judges), `mock_rag` (HTTP RAG over `httpx.MockTransport`) and
+  `api_client`. Never call a real model provider or open a socket; mypy --strict covers `tests/`.
+- `filterwarnings = error` has narrow, commented exemptions for TruLens resource leaks (per-thread
+  event loops, sqlite connections). Do not widen them; fix new warnings at the source.
 - Provider judges (`tools.RagasJudge`, `tools.TruLensJudge`) take injected clients/backends; never
   build them from ambient credentials. Hermetic code uses `tools.offline` (`ScriptedRagasLLM`,
   `HashingEmbeddings`, `ScriptedTruLensProvider`) and `tools.StaticRAGClient`.

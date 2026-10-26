@@ -111,7 +111,8 @@ class ScriptedTruLensProvider(LLMProvider):
     _responder: TruLensResponder = PrivateAttr()
 
     def __init__(self, responder: TruLensResponder, **kwargs: Any) -> None:
-        kwargs.setdefault("endpoint", Endpoint(name="scripted-trulens-endpoint"))
+        # No pacing retries offline: TruLens would otherwise sleep 2 s, 4 s, 8 s per fault.
+        kwargs.setdefault("endpoint", Endpoint(name="scripted-trulens-endpoint", retries=0))
         super().__init__(**kwargs)  # type: ignore[no-untyped-call]  # untyped upstream
         self._responder = responder
 

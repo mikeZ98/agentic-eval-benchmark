@@ -138,10 +138,11 @@ class TruLensJudge:
     - ``ANSWER_RELEVANCY`` ← ``relevance_with_cot_reasons`` (question vs. answer)
     - each :class:`CustomFeedback` ← an ``ASPECT_CRITIQUE`` metric named after it
 
-    Faults follow :class:`~agentic_eval_benchmark.tools.RagasJudge`: transient provider
-    errors raise ``TransientError``; anything else (including a timeout, after which
-    the worker thread is abandoned) is rescored by ``fallback`` or becomes a failure
-    verdict. Custom feedbacks never fall back: their verdict fails instead.
+    Faults: the TruLens endpoint retries provider calls itself and reports exhaustion as
+    a plain ``RuntimeError``, so provider faults (and timeouts, after which the worker
+    thread is abandoned) are rescored by ``fallback`` or become failure verdicts.
+    Transport faults raised by custom feedback functions surface as ``TransientError``
+    for the engine to retry; other feedback errors fail that critique (no fallback).
     """
 
     def __init__(

@@ -84,7 +84,8 @@ select = [
 ignore = ["PLR0913", "TRY003"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "S105", "S106", "PLR2004", "ARG001", "FBT"]
+# Test doubles mirror callback signatures (unused args); test data holds typographic quotes.
+"tests/**" = ["S101", "S105", "S106", "PLR2004", "ARG001", "ARG002", "ARG005", "FBT", "PLR0917", "RUF001"]
 # Typer maps every option to a keyword parameter with a default, flags included.
 "src/agentic_eval_benchmark/cli.py" = ["FBT001", "FBT002", "PLR0917"]
 
@@ -102,13 +103,13 @@ python_version = "3.13"
 strict = true
 cache_dir = ".cache/mypy"
 mypy_path = "src"
-packages = ["agentic_eval_benchmark"]
+files = ["src", "tests"]
 plugins = ["pydantic.mypy"]
 warn_unreachable = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 
 [[tool.mypy.overrides]]
-module = ["ragas.*", "trulens.*", "datasets.*", "pyarrow.*", "anthropic.*"]
+module = ["ragas.*", "trulens.*", "datasets.*", "pyarrow.*", "anthropic.*", "nltk.*"]
 ignore_missing_imports = true
 
 [tool.pydantic-mypy]
@@ -135,7 +136,20 @@ addopts = [
   "--cov-branch",
   "--cov-report=term-missing",
 ]
-filterwarnings = ["error"]
+filterwarnings = [
+  "error",
+  # TruLens' Pace creates an event loop in each worker thread that calls a provider and
+  # never closes it (trulens/core/utils/pace.py); its self-pipe is an AF_UNIX socketpair.
+  "ignore:unclosed event loop:ResourceWarning",
+  # ... and calls asyncio.get_event_loop() from the main thread when building an endpoint.
+  "ignore:There is no current event loop:DeprecationWarning:trulens\\..*",
+  "ignore:Exception ignored in. <function BaseEventLoop.__del__:pytest.PytestUnraisableExceptionWarning",
+  "ignore:Exception ignored in. <pytest_socket.disable_socket.<locals>.GuardedSocket fd=[0-9]+, family=1,:pytest.PytestUnraisableExceptionWarning",
+  # TruLens' database layer (alembic migrations on session open) leaves sqlite3
+  # connections to the garbage collector. This package never opens sqlite3 itself.
+  "ignore:unclosed database in <sqlite3.Connection:ResourceWarning",
+  "ignore:Exception ignored in. <sqlite3.Connection object:pytest.PytestUnraisableExceptionWarning",
+]
 
 [tool.coverage.run]
 branch = true
@@ -146,7 +160,12 @@ data_file = ".cache/coverage/.coverage"
 fail_under = 90
 show_missing = true
 skip_covered = false
-exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError", "@overload"]
+exclude_also = [
+  "if TYPE_CHECKING:",
+  "raise NotImplementedError",
+  "@overload",
+  "if __name__ == .__main__.:",
+]
 
 # ---------------------------------------------------------------------------
 # Bandit
