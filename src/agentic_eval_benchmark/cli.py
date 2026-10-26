@@ -74,8 +74,14 @@ class JudgeChoice(StrEnum):
     TRULENS = "trulens"
 
 
-stdout = Console(soft_wrap=True)
-stderr = Console(stderr=True, soft_wrap=True)
+def _stdout() -> Console:
+    """A console built per call, so color follows the environment at invocation time."""
+    return Console(soft_wrap=True)
+
+
+def _stderr() -> Console:
+    return Console(stderr=True, soft_wrap=True)
+
 
 app = typer.Typer(
     name="agentic-eval",
@@ -89,7 +95,7 @@ _RAG_HELP: Final = "RAG endpoint URL (overrides EVAL_RAG_URL)."
 
 
 def _fail(code: ExitCode, message: str) -> NoReturn:
-    stderr.print(f"[red]error:[/red] {message}", highlight=False)
+    _stderr().print(f"[red]error:[/red] {message}", highlight=False)
     raise typer.Exit(int(code))
 
 
@@ -138,14 +144,21 @@ def _load_report(store: RunStore, target: str) -> BenchmarkReport:
     return store.load(target)
 
 
+def _write_plain(text: str) -> None:
+    """Machine-readable output (JSON, Markdown) bypasses rich: FORCE_COLOR or a TTY must
+    never inject terminal escape codes into what `jq` or a step summary will parse."""
+    sys.stdout.write(text if text.endswith("\n") else text + "\n")
+    sys.stdout.flush()
+
+
 def _emit(report: BenchmarkReport, fmt: OutputFormat, *, full_json: bool) -> None:
     summary = report.summary
     if fmt is OutputFormat.JSON:
-        stdout.print_json((report if full_json else summary).to_json())
+        _write_plain((report if full_json else summary).to_json(indent=2))
     elif fmt is OutputFormat.MARKDOWN:
-        stdout.print(render_markdown(summary, evaluations=report.evaluations), markup=False)
+        _write_plain(render_markdown(summary, evaluations=report.evaluations))
     else:
-        stdout.print(render_table(summary))
+        _stdout().print(render_table(summary))
 
 
 # ---------------------------------------------------------------------------
@@ -219,7 +232,7 @@ def run(
             baseline=baseline_summary,
             run_id=run_id,
         )
-        stderr.print(
+        _stderr().print(
             f"Evaluating [bold]{plan.dataset.name}[/bold] v{plan.dataset.dataset_version} "
             f"({len(plan.dataset.samples)} samples) with the [bold]{backend}[/bold] judge…"
         )
@@ -233,11 +246,11 @@ def run(
 
         report, errors, run_dir = asyncio.run(execute())
         if errors:
-            stderr.print(f"[yellow]{errors} sample(s) could not be evaluated (see errors.json)")
-        stderr.print(f"Saved to {run_dir}")
+            _stderr().print(f"[yellow]{errors} sample(s) could not be evaluated (see errors.json)")
+        _stderr().print(f"Saved to {run_dir}")
         _emit(report, output_format, full_json=False)
         result = QualityGate(policy).evaluate(report.summary, evaluations=report.evaluations)
-        stderr.file.write(render_gate_ansi(result, color=_color(stderr)))
+        _stderr().file.write(render_gate_ansi(result, color=_color(_stderr())))
         write_step_summary(
             render_gate_markdown(result, report.summary, evaluations=report.evaluations)
         )
@@ -280,7 +293,7 @@ def report(
                 loaded.to_parquet(export)
             else:
                 _fail(ExitCode.INVALID, "--export must end in .json or .parquet")
-            stderr.print(f"Exported to {export}")
+            _stderr().print(f"Exported to {export}")
         _emit(loaded, output_format, full_json=True)
 
     _guarded(action)
@@ -350,14 +363,15 @@ def gate(
         except BaselineMismatchError as exc:
             _fail(ExitCode.INVALID, str(exc))
         if output_format is GateFormat.JSON:
-            stdout.print_json(result.to_json())
+            _write_plain(result.to_json(indent=2))
         elif output_format is GateFormat.MARKDOWN:
-            markdown = render_gate_markdown(
-                result, summary, evaluations=report.evaluations, drift=drift_report
+            _write_plain(
+                render_gate_markdown(
+                    result, summary, evaluations=report.evaluations, drift=drift_report
+                )
             )
-            stdout.print(markdown, markup=False)
         else:
-            sys.stdout.write(render_gate_ansi(result, color=_color(stdout)))
+            sys.stdout.write(render_gate_ansi(result, color=_color(_stdout())))
         try:
             enforce_gate(
                 summary,
@@ -469,7 +483,7 @@ def verify(
             table.add_column(column)
         for name, ok, detail in probes.results:
             table.add_row(name, "[green]ok[/green]" if ok else "[red]FAIL[/red]", detail)
-        stdout.print(table)
+        _stdout().print(table)
         if not all(ok for _, ok, _ in probes.results):
             raise typer.Exit(int(ExitCode.INVALID))
 

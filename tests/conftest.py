@@ -51,7 +51,9 @@ RELEVANCY = MetricType.ANSWER_RELEVANCY
 type MakeRun = Callable[..., EvaluationRun]
 type RagHandler = Callable[[httpx.Request], httpx.Response]
 
-_SCRUBBED_PREFIXES = ("EVAL_", "GITHUB_", "OPENAI_", "ANTHROPIC_", "OTEL_", "FASTAPI_OTEL")
+_SCRUBBED_PREFIXES = (
+    "EVAL_", "GITHUB_", "OPENAI_", "ANTHROPIC_", "OTEL_", "FASTAPI_OTEL", "FORCE_COLOR", "CLICOLOR",
+)  # fmt: skip
 
 
 @pytest.fixture(autouse=True)

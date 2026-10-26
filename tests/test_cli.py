@@ -158,6 +158,23 @@ def test_run_answers_from_a_real_endpoint(mock_rag: RagRecorder) -> None:
     assert summary_of(result)["gate_passed"] is False
 
 
+def test_machine_output_has_no_escape_codes_even_when_color_is_forced(
+    make_run: MakeRun, tmp_path: Path
+) -> None:
+    write_run(make_run("forced", [0.95, 0.95]), tmp_path / "runs")
+    forced = {"FORCE_COLOR": "1", "NO_COLOR": "", "TERM": "xterm-256color"}
+    outputs = [
+        invoke("run", "--oracle", "--format", "json", env=forced).stdout,
+        invoke("report", "forced", "--format", "json", env=forced).stdout,
+        invoke("report", "forced", "--format", "markdown", env=forced).stdout,
+        invoke("gate", "forced", "--no-drift", "--format", "json", env=forced).stdout,
+        invoke("gate", "forced", "--no-drift", "--format", "markdown", env=forced).stdout,
+    ]
+    assert all("\x1b[" not in text for text in outputs), outputs
+    for text in (outputs[0], outputs[1], outputs[3]):
+        json.loads(text)
+
+
 def test_internal_errors_exit_3(monkeypatch: pytest.MonkeyPatch) -> None:
     async def explode(self: EvaluationServices, plan: object) -> object:
         raise RuntimeError("SECRET")

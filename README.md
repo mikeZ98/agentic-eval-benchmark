@@ -14,7 +14,7 @@ on gradual drift across runs. A failed gate exits non-zero, so it blocks CI and 
   pipeline with no network, no model and no credentials; telemetry of every library is disabled.
 - **Strict contracts**: frozen, strict Pydantic v2 schemas whose validators make contradictory
   results (a passing gate with a failing mean) unrepresentable.
-- **Python 3.13**, `mypy --strict`, 373 hermetic tests at 99.29% branch coverage.
+- **Python 3.13**, `mypy --strict`, 374 hermetic tests at 99.29% branch coverage.
 
 ## Contents
 
@@ -746,7 +746,7 @@ regression or (in strict mode) a failed sample. Reports are re-validated on load
 everywhere list field locations and messages only (`include_input=False`); datasets, answers,
 URLs and credentials never reach a response or an exception message.
 
-**Verification.** 373 hermetic tests at 99.29% branch coverage (gate: 90%), `mypy --strict` over
+**Verification.** 374 hermetic tests at 99.29% branch coverage (gate: 90%), `mypy --strict` over
 `src` and `tests`, ruff, bandit and a Trivy filesystem scan in CI. Reproduce with:
 
 ```bash
