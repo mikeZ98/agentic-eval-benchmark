@@ -32,7 +32,7 @@ Every commit in this repository, on every branch, MUST have **author and committ
 | `pre-commit` | `.githooks/pre-commit` | author/committer identity; blocks `.cache/`, venvs, `.env*`, keys, coverage and SQLite files; ruff check and format on staged Python |
 | `commit-msg` | `.githooks/commit-msg` | forbidden trailers/terms; Conventional Commit subject; identity re-check (covers `--author`, `--amend` and `git merge`) |
 | `pre-push` | `.githooks/pre-push` | full audit of every commit being pushed (catches cherry-picks and rebases, which skip `pre-commit`) |
-| CI | `scripts/audit-attribution.sh` via the GitHub Actions `attribution-audit` job (added in the `ci(github)` step, `fetch-depth: 0`) | server-side audit of the whole branch history |
+| CI | `scripts/audit-attribution.sh` in the `attribution-audit` job of `.github/workflows/ci.yml` (`fetch-depth: 0`, PR head commit) | server-side audit of the whole branch history; every other job depends on it |
 
 The policy (allowed identity and banned patterns) lives in one place: `.githooks/_policy.sh`.
 Audit any range by hand with `scripts/audit-attribution.sh [<rev-list args>]` (default: `HEAD`).
@@ -87,6 +87,20 @@ mypy                      # strict, configured in pyproject.toml
 bandit -c pyproject.toml -r src
 pytest                    # hermetic: sockets disabled, coverage ≥ 90% (branch)
 ```
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on pushes and pull requests to `main`. After `attribution-audit`,
+four jobs run in parallel: `lint-and-typecheck` (ruff, `mypy --strict src tests`), `security-audit`
+(Trivy fs scan for CRITICAL/HIGH, bandit), `test-hermetic` (pytest, sockets disabled, branch
+coverage ≥ 90%) and `eval-benchmark-gate` (oracle run over the reference dataset, then the blocking
+`agentic-eval gate`, reported in the step summary). `docker-build` then builds the image and checks
+it runs as 10001, has no installers, and turns healthy with `--network none` and a read-only root.
+
+Every action is pinned to a full commit SHA with its release tag in a comment, and permissions are
+`contents: read`. To bump an action, resolve the tag yourself (`git ls-remote https://github.com/OWNER/REPO
+refs/tags/vX.Y.Z 'refs/tags/vX.Y.Z^{}'`) and update the SHA and the comment together;
+`tests/test_ci_workflow.py` rejects unpinned or uncommented actions.
 
 ## Commit discipline
 

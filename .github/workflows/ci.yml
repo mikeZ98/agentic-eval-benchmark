@@ -1,0 +1,332 @@
+# agentic-eval-benchmark CI.
+#
+#   attribution-audit ─┬─ lint-and-typecheck ──┬─ docker-build
+#                      ├─ security-audit       │
+#                      ├─ test-hermetic ───────┘
+#                      └─ eval-benchmark-gate
+#
+# Every third-party action is pinned to a full commit SHA (release tag in the trailing
+# comment), verified against the upstream tag; tests/test_ci_workflow.py enforces it.
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  # Supersede stale runs on feature branches and PRs; never cancel runs on main.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+env:
+  UV_VERSION: "0.11.7"
+  PYTHON_VERSION: "3.13"
+  UV_FROZEN: "1"
+  FORCE_COLOR: "1"
+  # Same opt-outs as .envrc: no usage telemetry from any job.
+  RAGAS_DO_NOT_TRACK: "true"
+  TRULENS_OTEL_TRACING: "0"
+  HF_HUB_DISABLE_TELEMETRY: "1"
+  DO_NOT_TRACK: "1"
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  attribution-audit:
+    name: attribution-audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out full history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          # Audit the real branch head: a PR's synthetic merge commit is committed by
+          # GitHub itself and would (correctly) fail the sole-contributor invariant.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      # The script refuses shallow clones, so a partial history can never pass.
+      - name: Audit authors, committers and messages
+        run: scripts/audit-attribution.sh HEAD
+
+  lint-and-typecheck:
+    name: lint-and-typecheck
+    needs: attribution-audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install locked dependencies
+        run: uv sync --frozen
+
+      - name: Ruff lint
+        run: uv run ruff check --output-format=github .
+
+      - name: Ruff format
+        run: uv run ruff format --check .
+
+      - name: Mypy (strict)
+        run: uv run mypy --strict src tests
+
+  security-audit:
+    name: security-audit
+    needs: attribution-audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Before `uv sync`, so the scan covers uv.lock, the Dockerfile and the repo rather
+      # than an installed venv.
+      - name: Trivy filesystem scan (CRITICAL/HIGH)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
+          # Test fixtures carry fake API keys and synthetic datasets by design.
+          skip-dirs: tests
+
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install locked dependencies
+        run: uv sync --frozen
+
+      - name: Bandit
+        run: uv run bandit -c pyproject.toml -r src
+
+  test-hermetic:
+    name: test-hermetic
+    needs: attribution-audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      # Network is used here only to install the locked wheels.
+      - name: Install locked dependencies
+        run: uv sync --frozen
+
+      # pyproject addopts apply --disable-socket (pytest-socket) to every test, and
+      # tests/test_tools_support.py::test_sockets_are_blocked asserts sockets fail.
+      - name: Pytest (hermetic, branch coverage >= 90%)
+        run: |
+          mkdir -p .cache/coverage
+          uv run pytest tests/ \
+            --cov=src/agentic_eval_benchmark --cov-branch --cov-fail-under=90 \
+            --cov-report=xml:.cache/coverage/coverage.xml
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-xml
+          path: .cache/coverage/coverage.xml
+          retention-days: 14
+          if-no-files-found: ignore
+
+  eval-benchmark-gate:
+    name: eval-benchmark-gate
+    needs: attribution-audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      EVAL_OUTPUT_DIR: .cache/eval_runs
+      RUN_ID: ci-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install locked dependencies
+        run: uv sync --frozen --no-dev
+
+      # The oracle answers from the bundled reference dataset and the heuristic judge
+      # scores offline, so this exercises the whole run -> judge -> gate pipeline with
+      # no endpoint or model credentials. `run` writes its report to the step summary.
+      - name: Benchmark the reference dataset (LLM-as-a-Judge pipeline)
+        run: |
+          uv run --no-dev agentic-eval run --oracle --judge-model heuristic \
+            --run-id "$RUN_ID" --format markdown
+
+      # Blocking gate: Faithfulness >= 0.85 and Answer Relevancy >= 0.85 (strict mode),
+      # no regression, no drift. A violation exits 1, halts the workflow, emits ::error
+      # annotations and appends an actionable report to the step summary.
+      - name: Enforce the quality gate
+        run: uv run --no-dev agentic-eval gate "$RUN_ID" --step-summary "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the evaluation report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: eval-report
+          path: .cache/eval_runs/
+          retention-days: 30
+          if-no-files-found: error
+
+  docker-build:
+    name: docker-build
+    needs: [lint-and-typecheck, test-hermetic]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      IMAGE: agentic-eval-benchmark:ci
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Lint the Dockerfile (BuildKit checks)
+        run: docker buildx build --check .
+
+      - name: Build image (Buildx)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: Dockerfile
+          push: false
+          load: true
+          # Attestations would turn the result into a manifest list the docker
+          # exporter cannot load; supply-chain metadata belongs to a release job.
+          provenance: false
+          sbom: false
+          tags: ${{ env.IMAGE }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Assert non-root user and minimal runtime
+        run: |
+          set -euo pipefail
+          test "$(docker image inspect --format '{{.Config.User}}' "$IMAGE")" = "10001:10001"
+          test "$(docker run --rm --entrypoint id "$IMAGE" -un)" = "appuser"
+          test "$(docker run --rm --entrypoint id "$IMAGE" -u)" = "10001"
+          test "$(docker run --rm --entrypoint id "$IMAGE" -g)" = "10001"
+          docker image inspect --format '{{json .Config.Healthcheck}}' "$IMAGE" \
+            | grep -q '/v1/eval/health'
+          docker run --rm --entrypoint python "$IMAGE" -c '
+          import importlib.util, os, shutil, sys
+          problems = [m for m in ("pip", "ensurepip") if importlib.util.find_spec(m)]
+          tools = ("pip", "pip3", "uv", "uvx", "apt", "apt-get", "dpkg", "gcc", "cc", "curl", "wget")
+          problems += [b for b in tools if shutil.which(b)]
+          if os.access("/app/.venv", os.W_OK):
+              problems.append("venv writable by appuser")
+          if not os.path.getsize("/var/lib/dpkg/status"):
+              problems.append("dpkg status missing (image scanners need it)")
+          sys.exit(f"runtime image problems: {problems}" if problems else 0)
+          '
+
+      # --network none: the service, the oracle run and the heuristic judge must all work
+      # with zero egress, on a read-only root filesystem, as in docker-compose.yml.
+      - name: Start hardened container without network
+        run: |
+          docker run -d --name eval \
+            --network none \
+            --read-only \
+            --tmpfs /tmp:rw,noexec,nosuid,nodev,size=128m \
+            --tmpfs /app/.cache:rw,noexec,nosuid,nodev,size=256m,uid=10001,gid=10001,mode=0700 \
+            --tmpfs /app/.cache/eval_runs:rw,noexec,nosuid,nodev,size=256m,uid=10001,gid=10001,mode=0700 \
+            --tmpfs /app/.cache/trulens:rw,noexec,nosuid,nodev,size=64m,uid=10001,gid=10001,mode=0700 \
+            --cap-drop ALL \
+            --security-opt no-new-privileges:true \
+            --memory 2g --cpus 2 --pids-limit 256 \
+            --health-interval 5s --health-start-period 60s \
+            "$IMAGE"
+
+      - name: Wait for HEALTHCHECK to report healthy
+        run: |
+          set -euo pipefail
+          status=starting
+          for _ in $(seq 1 36); do
+            status="$(docker inspect --format '{{.State.Health.Status}}' eval)"
+            if [ "$status" != "starting" ]; then break; fi
+            sleep 5
+          done
+          echo "health status: $status"
+          test "$status" = "healthy"
+
+      - name: Smoke test the API and CLI inside the container
+        run: |
+          set -euo pipefail
+          docker exec -i eval python - <<'PY'
+          import json, urllib.error, urllib.request
+
+          BASE = "http://127.0.0.1:8080/v1/eval"
+
+          def call(path, body=None):
+              data = None if body is None else json.dumps(body).encode()
+              request = urllib.request.Request(
+                  BASE + path, data, {"content-type": "application/json"}
+              )
+              try:
+                  with urllib.request.urlopen(request, timeout=120) as response:
+                      return response.status, dict(response.headers), json.loads(response.read())
+              except urllib.error.HTTPError as error:
+                  return error.code, dict(error.headers), json.loads(error.read())
+
+          status, _, body = call("/health")
+          assert status == 200 and body["status"] == "ok", body
+          status, headers, summary = call("/run", {"oracle": True, "run_id": "smoke"})
+          assert status == 201 and headers["x-eval-gate"] == "passed", (status, summary)
+          status, _, report = call("/report/smoke")
+          assert status == 200 and len(report["evaluations"]) == 8, report
+          status, headers, problem = call("/report/missing")
+          assert status == 404 and headers["content-type"] == "application/problem+json", problem
+          print("container API smoke test passed")
+          PY
+          docker exec eval agentic-eval run --oracle --format json > /dev/null
+          docker exec eval sh -c 'touch /app/probe' && exit 1 || echo "root filesystem is read-only"
+
+      - name: Validate compose file
+        run: docker compose -f docker-compose.yml config --quiet
+
+      - name: Container logs
+        if: always()
+        run: docker logs eval 2>&1 || true
