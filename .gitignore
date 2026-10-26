@@ -1,0 +1,39 @@
+# SSD-pinned caches, venv, temp, eval artifacts, Colima, Docker config (see .envrc)
+.cache/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+build/
+dist/
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.hypothesis/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Evaluation run artifacts (TruLens / Ragas defaults if run without direnv)
+*.sqlite
+*.sqlite3
+default.sqlite
+reports/
+
+# Secrets & local overrides
+.env
+.env.*
+!.env.example
+.envrc.local
+*.pem
+*.key
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+.claude/settings.local.json

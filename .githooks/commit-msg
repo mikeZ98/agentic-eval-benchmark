@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# commit-msg: reject AI attribution / co-author trailers, enforce Conventional
+# Commits and re-validate author + committer identity (covers --author, --amend,
+# and `git merge`, which runs commit-msg but not pre-commit).
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+# shellcheck source=_policy.sh
+source "$ROOT/.githooks/_policy.sh"
+
+msg="$(eval_clean_message <"$1")"
+subject="$(sed -n '/[^[:space:]]/{p;q;}' <<<"$msg")"
+
+fail=0
+[[ -n "$subject" ]] || { eval_err "Empty commit message."; exit 1; }
+eval_check_subject "$subject" || fail=1
+eval_check_message "$msg" || fail=1
+eval_check_pending_identities || fail=1
+
+exit "$fail"
