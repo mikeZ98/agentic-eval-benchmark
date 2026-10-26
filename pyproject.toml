@@ -30,6 +30,8 @@ dependencies = [
   "trulens-feedback>=2.16,<3",
   "trulens-providers-openai>=2.16,<3",
   "openai>=1.100",
+  # Tabular export of run summaries
+  "pyarrow>=21",
 ]
 
 [dependency-groups]
@@ -97,7 +99,7 @@ warn_unreachable = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 
 [[tool.mypy.overrides]]
-module = ["ragas.*", "trulens.*", "datasets.*"]
+module = ["ragas.*", "trulens.*", "datasets.*", "pyarrow.*"]
 ignore_missing_imports = true
 
 [tool.pydantic-mypy]
