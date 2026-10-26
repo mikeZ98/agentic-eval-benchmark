@@ -47,6 +47,10 @@ agentic-eval gate RUN_ID --baseline BASE_ID   # CI blocker: exit 1 on threshold/
 agentic-eval serve                         # /v1/eval API on 127.0.0.1:8080
 ```
 
+```bash
+scripts/colima.sh start && docker compose up --build   # containers only via the SSD-pinned Colima
+```
+
 Exit codes: `0` gate passed, `1` gate failed or regressed, `2` invalid input/config, `3` internal.
 Settings families (disjoint prefixes): `EVAL_*` (BenchmarkSettings), `EVAL_API_*`, `EVAL_PROVIDER_*`
 (judge model + key; no model IDs are defaulted), `EVAL_RAG_*` (RAG endpoint mapping).

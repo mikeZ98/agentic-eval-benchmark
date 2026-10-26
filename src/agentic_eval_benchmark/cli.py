@@ -491,7 +491,16 @@ def serve(
 
     from agentic_eval_benchmark.api import create_app  # noqa: PLC0415
 
-    uvicorn.run(create_app(), host=host, port=port, access_log=False)
+    # Access logs are off: request lines can carry run IDs and query strings into shared
+    # logs; problems carry the request ID for correlation instead.
+    uvicorn.run(
+        create_app(),
+        host=host,
+        port=port,
+        access_log=False,
+        server_header=False,
+        timeout_graceful_shutdown=10,
+    )
 
 
 def main() -> None:

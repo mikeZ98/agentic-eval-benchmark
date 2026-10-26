@@ -1,0 +1,16 @@
+# Default-deny build context: only what the image build needs reaches the daemon.
+# This excludes .git, .githooks, .cache (venv, uv/colima/docker state), tests, scripts,
+# scratchpads, IDE configs, virtualenvs, secrets (.env, .envrc*) and docs.
+*
+
+!pyproject.toml
+!uv.lock
+!LICENSE
+# Required by the package metadata (pyproject `readme`); the only markdown let through.
+!README.md
+!src
+
+# Never ship interpreter or OS litter from src/.
+**/__pycache__
+**/*.py[cod]
+**/.DS_Store

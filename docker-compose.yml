@@ -1,0 +1,84 @@
+# Production-like local stack for agentic-eval-benchmark.
+#
+#   docker compose up --build            # API on http://127.0.0.1:8080/v1/eval
+#   docker compose run --rm eval run --oracle --format json   # one-off CLI run
+#
+# Non-secret defaults below can be overridden from the shell or a local .env (compose
+# interpolation). Secrets (EVAL_API_API_KEY, EVAL_PROVIDER_API_KEY, EVAL_RAG_API_KEY)
+# belong in .env only (gitignored; see .env.example), which is passed through when present.
+# On macOS run Docker through scripts/colima.sh so the VM, images and layers stay on the SSD.
+
+name: agentic-eval-benchmark
+
+services:
+  eval:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: agentic-eval-benchmark:0.1.0
+    init: true
+    restart: unless-stopped
+
+    # Hardening: non-root, immutable root filesystem, no privileges, no capabilities.
+    user: "10001:10001"
+    read_only: true
+    # All writable state is in memory. Run reports and TruLens state are lost when the
+    # container stops: mount a volume at /app/.cache/eval_runs to keep run history for
+    # baselines and drift tracking (see the commented volume below).
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=128m
+      - /app/.cache:rw,noexec,nosuid,nodev,size=256m,uid=10001,gid=10001,mode=0700
+      - /app/.cache/eval_runs:rw,noexec,nosuid,nodev,size=256m,uid=10001,gid=10001,mode=0700
+      - /app/.cache/trulens:rw,noexec,nosuid,nodev,size=64m,uid=10001,gid=10001,mode=0700
+    # volumes:
+    #   - eval-runs:/app/.cache/eval_runs
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+    # Loopback by default; set EVAL_BIND=0.0.0.0 to expose on all interfaces.
+    ports:
+      - "${EVAL_BIND:-127.0.0.1}:8080:8080"
+
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      EVAL_JUDGE_MODEL: ${EVAL_JUDGE_MODEL:-heuristic}
+      EVAL_CONCURRENCY_LIMIT: ${EVAL_CONCURRENCY_LIMIT:-5}
+      EVAL_TIMEOUT_SECONDS: ${EVAL_TIMEOUT_SECONDS:-30}
+      EVAL_RETRY_ATTEMPTS: ${EVAL_RETRY_ATTEMPTS:-3}
+      EVAL_RAG_URL: ${EVAL_RAG_URL:-http://host.docker.internal:8000/rag/answer}
+      EVAL_API_MAX_CONCURRENT_RUNS: ${EVAL_API_MAX_CONCURRENT_RUNS:-1}
+      EVAL_API_MAX_REQUEST_BYTES: ${EVAL_API_MAX_REQUEST_BYTES:-16777216}
+
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2g
+          pids: 256
+        reservations:
+          memory: 512m
+
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/v1/eval/health', timeout=4).status == 200 else 1)"
+      interval: 30s
+      timeout: 5s
+      start_period: 40s
+      retries: 3
+
+    stop_grace_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# volumes:
+#   eval-runs:

@@ -61,6 +61,24 @@ Hugging Face telemetry. Tool config in `pyproject.toml` also points the pytest, 
 coverage caches at `.cache/`, so they stay there even without direnv. Put personal overrides in
 `.envrc.local` (gitignored).
 
+### Containers (Docker via Colima)
+
+Use the wrapper, never Docker Desktop's socket (`/var/run/docker.sock`, `~/.docker`):
+
+```bash
+scripts/colima.sh start      # VM disk, images and layers in .cache/lima, base image in .cache/xdg
+docker compose up --build    # API on 127.0.0.1:8080, read-only rootfs, uid 10001
+docker compose run --rm eval run --oracle --format json
+scripts/colima.sh stop
+```
+
+The wrapper runs Colima with `HOME=.cache/home` (Lima's download cache ignores every other
+variable) and registers the buildx/compose plugin directories in `$DOCKER_CONFIG/config.json`.
+`LIMA_HOME` is `.cache/lima`, not `$COLIMA_HOME/_lima`: Lima's socket paths must stay below the
+104-byte `UNIX_PATH_MAX`. **Known limitation:** Lima's DNS forwarder hard-codes `/tmp` for its
+listener sockets (`/private/tmp/lima-psl-127.0.0.1-53-*`, an empty directory with a 0-byte socket
+per VM start) whatever `TMPDIR` says; no file content is written there.
+
 ## Quality gates
 
 ```bash

@@ -353,7 +353,15 @@ def test_serve_starts_uvicorn(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(uvicorn, "run", lambda app, **kwargs: calls.append(kwargs))
     result = invoke("serve", "--port", "9999")
     assert result.exit_code == 0
-    assert calls == [{"host": "127.0.0.1", "port": 9999, "access_log": False}]
+    assert calls == [
+        {
+            "host": "127.0.0.1",
+            "port": 9999,
+            "access_log": False,
+            "server_header": False,
+            "timeout_graceful_shutdown": 10,
+        }
+    ]
 
 
 def test_help_and_module_entry_point(monkeypatch: pytest.MonkeyPatch) -> None:
