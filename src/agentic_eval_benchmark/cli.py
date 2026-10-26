@@ -11,6 +11,8 @@ Data goes to stdout (so ``--format json | jq`` works); progress and errors to st
 """
 
 import asyncio
+import os
+import sys
 from collections.abc import Callable
 from enum import IntEnum, StrEnum
 from pathlib import Path
@@ -31,6 +33,17 @@ from agentic_eval_benchmark.api.services import (
     ServiceError,
 )
 from agentic_eval_benchmark.core import BenchmarkSettings, HeuristicJudge, JudgeBackend
+from agentic_eval_benchmark.guardrails import (
+    BaselineMismatchError,
+    DriftTracker,
+    QualityGate,
+    QualityGateFailureError,
+    enforce_gate,
+    render_gate_ansi,
+    render_gate_markdown,
+    strictest_policy,
+    write_step_summary,
+)
 from agentic_eval_benchmark.reporting import render_markdown, render_table
 from agentic_eval_benchmark.schemas import BenchmarkReport, GoldenDataset, ThresholdPolicy
 
@@ -46,6 +59,12 @@ class OutputFormat(StrEnum):
     TABLE = "table"
     JSON = "json"
     MARKDOWN = "markdown"
+
+
+class GateFormat(StrEnum):
+    ANSI = "ansi"
+    MARKDOWN = "markdown"
+    JSON = "json"
 
 
 class JudgeChoice(StrEnum):
@@ -102,6 +121,10 @@ def _services(
     if concurrency is not None:
         overrides["concurrency_limit"] = concurrency
     return EvaluationServices(BenchmarkSettings(**overrides))  # type: ignore[arg-type]
+
+
+def _color(console: Console) -> bool:
+    return not os.environ.get("NO_COLOR") and console.is_terminal
 
 
 def _dataset(services: EvaluationServices, path: Path | None) -> GoldenDataset:
@@ -213,7 +236,13 @@ def run(
             stderr.print(f"[yellow]{errors} sample(s) could not be evaluated (see errors.json)")
         stderr.print(f"Saved to {run_dir}")
         _emit(report, output_format, full_json=False)
-        return ExitCode.OK if report.summary.gate_passed else ExitCode.GATE_FAILED
+        result = QualityGate(policy).evaluate(report.summary, evaluations=report.evaluations)
+        stderr.file.write(render_gate_ansi(result, color=_color(stderr)))
+        write_step_summary(
+            render_gate_markdown(result, report.summary, evaluations=report.evaluations)
+        )
+        passed = report.summary.gate_passed and result.passed
+        return ExitCode.OK if passed else ExitCode.GATE_FAILED
 
     raise typer.Exit(int(_guarded(action)))
 
@@ -255,6 +284,94 @@ def report(
         _emit(loaded, output_format, full_json=True)
 
     _guarded(action)
+
+
+# ---------------------------------------------------------------------------
+# gate (the fail-CI hook)
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def gate(
+    target: Annotated[str, typer.Argument(help="Run ID, run directory or report.json path.")],
+    baseline: Annotated[
+        str | None, typer.Option(help="Baseline run ID or report path to compare against.")
+    ] = None,
+    tolerance_delta: Annotated[
+        float | None,
+        typer.Option(min=0.0, max=1.0, help="Allowed drop vs the baseline (default 0.02)."),
+    ] = None,
+    drift: Annotated[
+        bool, typer.Option(help="Fail on gradual decay across stored runs of the dataset.")
+    ] = True,
+    drift_window: Annotated[int, typer.Option(min=1, max=100, help="Runs in the window.")] = 5,
+    drift_min_history: Annotated[
+        int, typer.Option(min=1, max=100, help="Earlier runs needed for a drift verdict.")
+    ] = 3,
+    drift_max_decline: Annotated[
+        float, typer.Option(min=0.0, max=1.0, help="Allowed drop below the moving average.")
+    ] = 0.03,
+    output_dir: Annotated[
+        Path | None, typer.Option(help="Run storage and drift history (overrides EVAL_OUTPUT_DIR).")
+    ] = None,
+    step_summary: Annotated[
+        Path | None,
+        typer.Option(help="Append the Markdown report here (default: $GITHUB_STEP_SUMMARY)."),
+    ] = None,
+    output_format: Annotated[GateFormat, typer.Option("--format")] = GateFormat.ANSI,
+) -> None:
+    """Fail CI (exit 1) unless a stored run clears the blueprint gate, the baseline and drift.
+
+    The gate uses the stricter of the blueprint policy and the run's own policy. Under
+    GitHub Actions each violation is also emitted as an ``::error`` annotation.
+    """
+
+    def action() -> ExitCode:
+        services = _services(output_dir=output_dir)
+        report = _load_report(services.store, target)
+        summary = report.summary
+        base = None if baseline is None else _load_report(services.store, baseline).summary
+        policy = strictest_policy(summary.policy)
+        quality_gate = QualityGate(policy, tolerance_delta=tolerance_delta)
+        drift_report = (
+            DriftTracker(
+                services.store.root,
+                window=drift_window,
+                min_history=min(drift_min_history, drift_window),
+                max_decline=drift_max_decline,
+            ).track(summary, policy=policy)
+            if drift
+            else None
+        )
+        try:
+            result = quality_gate.evaluate(
+                summary, base, drift=drift_report, evaluations=report.evaluations
+            )
+        except BaselineMismatchError as exc:
+            _fail(ExitCode.INVALID, str(exc))
+        if output_format is GateFormat.JSON:
+            stdout.print_json(result.to_json())
+        elif output_format is GateFormat.MARKDOWN:
+            markdown = render_gate_markdown(
+                result, summary, evaluations=report.evaluations, drift=drift_report
+            )
+            stdout.print(markdown, markup=False)
+        else:
+            sys.stdout.write(render_gate_ansi(result, color=_color(stdout)))
+        try:
+            enforce_gate(
+                summary,
+                base,
+                gate=quality_gate,
+                evaluations=report.evaluations,
+                drift=drift_report,
+                step_summary=step_summary,
+            )
+        except QualityGateFailureError:
+            return ExitCode.GATE_FAILED
+        return ExitCode.OK
+
+    raise typer.Exit(int(_guarded(action)))
 
 
 # ---------------------------------------------------------------------------

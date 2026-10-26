@@ -43,6 +43,7 @@ agentic-eval run --oracle --format json    # offline smoke run over the built-in
 agentic-eval run --rag-url URL --judge-model ragas --baseline RUN_ID
 agentic-eval report RUN_ID --format markdown --export out.parquet
 agentic-eval verify --skip-rag
+agentic-eval gate RUN_ID --baseline BASE_ID   # CI blocker: exit 1 on threshold/regression/drift
 agentic-eval serve                         # /v1/eval API on 127.0.0.1:8080
 ```
 
@@ -67,6 +68,9 @@ Settings families (disjoint prefixes): `EVAL_*` (BenchmarkSettings), `EVAL_API_*
   content; FastAPI's own OpenTelemetry layer is disabled in `create_app()`.
 - `agentic_eval_benchmark.tools` loads lazily (ragas + trulens import in ~10 s); import adapters only
   where a provider judge is actually built.
+- Gating rules live in two places that must agree: `core.gate_passes` (sets `gate_passed` at run
+  time) and `guardrails.QualityGate` (CI re-check with reasons). Change both together. CI gates use
+  `strictest_policy()`, so they are never laxer than the blueprint or the run's own policy.
 - `langchain-community` is constrained to `<0.4.2` in `pyproject.toml` because ragas 0.4.3 imports a
   module that release removed. Re-check before lifting it.
 - Conventional Commits, atomic. The blueprint order is: chore(config) → feat(schemas) → feat(core) →

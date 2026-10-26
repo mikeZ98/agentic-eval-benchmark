@@ -26,6 +26,7 @@ from agentic_eval_benchmark.schemas.metrics import (
 
 BLUEPRINT_FAITHFULNESS_MIN: Final = 0.85
 BLUEPRINT_RELEVANCY_MIN: Final = 0.85
+BLUEPRINT_REGRESSION_TOLERANCE: Final = 0.02
 
 # Aggregates are recomputed from float scores; allow for summation-order rounding.
 _FLOAT_TOLERANCE: Final = 1e-9
@@ -41,15 +42,15 @@ class ThresholdPolicy(EvalModel):
     ``strict_mode`` (the default) pins the blueprint floor: thresholds may be raised
     above 0.85 but never lowered below it, and a gated metric missing from a sample
     counts as a failure. Non-strict mode allows any threshold, for exploratory runs.
-    ``regression_tolerance`` is the largest drop in a metric mean, relative to the
-    baseline run, that is not reported as a regression.
+    ``regression_tolerance`` (default 0.02, absorbing LLM-judge noise) is the largest drop
+    in a metric mean, relative to the baseline run, that is not reported as a regression.
     """
 
     faithfulness_min: UnitInterval = BLUEPRINT_FAITHFULNESS_MIN
     relevancy_min: UnitInterval = BLUEPRINT_RELEVANCY_MIN
     context_precision_min: UnitInterval | None = None
     context_recall_min: UnitInterval | None = None
-    regression_tolerance: UnitInterval = 0.0
+    regression_tolerance: UnitInterval = BLUEPRINT_REGRESSION_TOLERANCE
     strict_mode: bool = True
 
     @model_validator(mode="after")

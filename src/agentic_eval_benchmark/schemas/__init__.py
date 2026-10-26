@@ -13,6 +13,7 @@ from agentic_eval_benchmark.schemas._base import (
 )
 from agentic_eval_benchmark.schemas.benchmark import (
     BLUEPRINT_FAITHFULNESS_MIN,
+    BLUEPRINT_REGRESSION_TOLERANCE,
     BLUEPRINT_RELEVANCY_MIN,
     BenchmarkReport,
     BenchmarkRunSummary,
@@ -34,6 +35,7 @@ from agentic_eval_benchmark.schemas.metrics import (
 
 __all__ = [
     "BLUEPRINT_FAITHFULNESS_MIN",
+    "BLUEPRINT_REGRESSION_TOLERANCE",
     "BLUEPRINT_RELEVANCY_MIN",
     "GOLDEN_DATASET_SCHEMA_VERSION",
     "BenchmarkReport",
