@@ -38,6 +38,18 @@ pytest                             # hermetic, --disable-socket, cov ≥ 90% bra
 scripts/audit-attribution.sh       # attribution audit of HEAD history
 ```
 
+```bash
+agentic-eval run --oracle --format json    # offline smoke run over the built-in dataset
+agentic-eval run --rag-url URL --judge-model ragas --baseline RUN_ID
+agentic-eval report RUN_ID --format markdown --export out.parquet
+agentic-eval verify --skip-rag
+agentic-eval serve                         # /v1/eval API on 127.0.0.1:8080
+```
+
+Exit codes: `0` gate passed, `1` gate failed or regressed, `2` invalid input/config, `3` internal.
+Settings families (disjoint prefixes): `EVAL_*` (BenchmarkSettings), `EVAL_API_*`, `EVAL_PROVIDER_*`
+(judge model + key; no model IDs are defaulted), `EVAL_RAG_*` (RAG endpoint mapping).
+
 ## Conventions
 
 - Pydantic v2 models: `model_config = ConfigDict(extra="forbid", frozen=True, strict=True)`.
@@ -50,6 +62,11 @@ scripts/audit-attribution.sh       # attribution audit of HEAD history
   writes a user-ID file to the home dir *before* honoring `RAGAS_DO_NOT_TRACK`, so its data dir is
   redirected under `XDG_DATA_HOME`. Keep TruLens groundedness on `use_sent_tokenize=False`: the NLTK
   path calls `nltk.download` at runtime. Open TruLens state only via `tools.open_trulens_session()`.
+- CLI and API share `api.services.EvaluationServices`; raise `ServiceError` subclasses (client-safe
+  message, HTTP status, exit code) instead of ad-hoc errors. Problem details never echo request
+  content; FastAPI's own OpenTelemetry layer is disabled in `create_app()`.
+- `agentic_eval_benchmark.tools` loads lazily (ragas + trulens import in ~10 s); import adapters only
+  where a provider judge is actually built.
 - `langchain-community` is constrained to `<0.4.2` in `pyproject.toml` because ragas 0.4.3 imports a
   module that release removed. Re-check before lifting it.
 - Conventional Commits, atomic. The blueprint order is: chore(config) → feat(schemas) → feat(core) →

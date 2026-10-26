@@ -5,18 +5,17 @@ strings, so lax coercion is required. Bounds are enforced explicitly.
 """
 
 from pathlib import Path
-from typing import Annotated, Final, Self
+from typing import Final, Literal, Self
 
-from pydantic import Field, StringConstraints, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+type JudgeBackend = Literal["heuristic", "mock", "ragas", "trulens"]
+
+JUDGE_BACKENDS: Final[tuple[JudgeBackend, ...]] = ("heuristic", "mock", "ragas", "trulens")
 
 OFFLINE_JUDGE_MODELS: Final = frozenset({"heuristic", "mock"})
 """``judge_model`` values served by the deterministic, network-free HeuristicJudge."""
-
-ModelId = Annotated[
-    str,
-    StringConstraints(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:/@-]*$"),
-]
 
 
 class BenchmarkSettings(BaseSettings):
@@ -29,9 +28,9 @@ class BenchmarkSettings(BaseSettings):
     concurrency_limit: int = Field(default=5, ge=1, le=256)
     """Maximum number of samples evaluated at the same time."""
 
-    judge_model: ModelId = "heuristic"
-    """Judge identifier: ``heuristic`` / ``mock`` (offline) or a provider model ID such
-    as ``gpt-4o``. Provider-backed judges are wired up by the tools layer."""
+    judge_model: JudgeBackend = "heuristic"
+    """Judge backend: ``heuristic`` / ``mock`` (offline, deterministic), or ``ragas`` /
+    ``trulens`` (provider-backed; the model and endpoint come from ``EVAL_PROVIDER_*``)."""
 
     timeout_seconds: float = Field(default=30.0, gt=0.0, le=600.0)
     """Per-attempt deadline for one RAG query or one judge call."""

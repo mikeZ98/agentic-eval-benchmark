@@ -1,6 +1,11 @@
 """Evaluation engine, LLM-as-a-Judge abstractions, offline judge and settings."""
 
-from agentic_eval_benchmark.core.config import OFFLINE_JUDGE_MODELS, BenchmarkSettings
+from agentic_eval_benchmark.core.config import (
+    JUDGE_BACKENDS,
+    OFFLINE_JUDGE_MODELS,
+    BenchmarkSettings,
+    JudgeBackend,
+)
 from agentic_eval_benchmark.core.engine import (
     RETRYABLE_ERRORS,
     EvaluationEngine,
@@ -30,12 +35,14 @@ from agentic_eval_benchmark.core.judge import (
 
 __all__ = [
     "DEFAULT_METRICS",
+    "JUDGE_BACKENDS",
     "OFFLINE_JUDGE_MODELS",
     "RETRYABLE_ERRORS",
     "BenchmarkSettings",
     "EvaluationEngine",
     "EvaluationRun",
     "HeuristicJudge",
+    "JudgeBackend",
     "JudgeProtocol",
     "JudgeVerdict",
     "JudgeVerdictError",

@@ -33,6 +33,9 @@ dependencies = [
   "pyarrow>=21",
 ]
 
+[project.scripts]
+agentic-eval = "agentic_eval_benchmark.cli:main"
+
 [project.optional-dependencies]
 # Anthropic judge models through ragas_llm(..., provider="anthropic"). Capped below 2.0:
 # that major release is days old and predates the instructor version ragas resolves.
@@ -82,6 +85,8 @@ ignore = ["PLR0913", "TRY003"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "S105", "S106", "PLR2004", "ARG001", "FBT"]
+# Typer maps every option to a keyword parameter with a default, flags included.
+"src/agentic_eval_benchmark/cli.py" = ["FBT001", "FBT002", "PLR0917"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["agentic_eval_benchmark"]
@@ -103,7 +108,7 @@ warn_unreachable = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 
 [[tool.mypy.overrides]]
-module = ["ragas.*", "trulens.*", "datasets.*", "pyarrow.*"]
+module = ["ragas.*", "trulens.*", "datasets.*", "pyarrow.*", "anthropic.*"]
 ignore_missing_imports = true
 
 [tool.pydantic-mypy]
