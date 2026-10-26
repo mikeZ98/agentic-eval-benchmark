@@ -1,0 +1,56 @@
+"""Evaluation engine, LLM-as-a-Judge abstractions, offline judge and settings."""
+
+from agentic_eval_benchmark.core.config import OFFLINE_JUDGE_MODELS, BenchmarkSettings
+from agentic_eval_benchmark.core.engine import (
+    RETRYABLE_ERRORS,
+    EvaluationEngine,
+    EvaluationRun,
+    RAGClientProtocol,
+    RAGResponse,
+    SampleError,
+    TransientError,
+    aggregate_metrics,
+    compare_to_baseline,
+    gate_passes,
+    read_report,
+    summarize,
+    write_run,
+)
+from agentic_eval_benchmark.core.judge import (
+    DEFAULT_METRICS,
+    HeuristicJudge,
+    JudgeProtocol,
+    JudgeVerdict,
+    JudgeVerdictError,
+    JudgeVerdictPayload,
+    build_score,
+    extract_json_object,
+    parse_judge_verdict,
+)
+
+__all__ = [
+    "DEFAULT_METRICS",
+    "OFFLINE_JUDGE_MODELS",
+    "RETRYABLE_ERRORS",
+    "BenchmarkSettings",
+    "EvaluationEngine",
+    "EvaluationRun",
+    "HeuristicJudge",
+    "JudgeProtocol",
+    "JudgeVerdict",
+    "JudgeVerdictError",
+    "JudgeVerdictPayload",
+    "RAGClientProtocol",
+    "RAGResponse",
+    "SampleError",
+    "TransientError",
+    "aggregate_metrics",
+    "build_score",
+    "compare_to_baseline",
+    "extract_json_object",
+    "gate_passes",
+    "parse_judge_verdict",
+    "read_report",
+    "summarize",
+    "write_run",
+]

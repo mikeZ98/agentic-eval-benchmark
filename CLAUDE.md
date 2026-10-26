@@ -22,8 +22,9 @@ FastAPI service (`/v1/eval/run`, `/v1/eval/report`). Python 3.13, uv, `src/` lay
 
 - Always work with direnv loaded (`direnv allow`). `.envrc` refuses to load unless
   `/Volumes/KINGSTONE_SSD` is mounted and the project resolves onto it. Caches, the venv
-  (`.cache/venv`), temp files, eval artifacts (`.cache/eval`), HF/tiktoken/NLTK data, Docker config
-  and Colima live under `./.cache/`. Never create `.venv/` or write caches elsewhere.
+  (`.cache/venv`), temp files, eval run reports (`.cache/eval_runs`, via `EVAL_OUTPUT_DIR`),
+  TruLens state (`.cache/trulens`), HF/tiktoken/NLTK data, Docker config and Colima live under
+  `./.cache/`. Never create `.venv/` or write caches elsewhere.
 - Install/sync: `uv sync`. Add deps: `uv add <pkg>` / `uv add --group dev <pkg>`. Commit `uv.lock`.
 - Ragas/TruLens telemetry is disabled in `.envrc`. Keep it that way.
 

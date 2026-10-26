@@ -55,10 +55,11 @@ uv sync               # downloads CPython 3.13 into .cache/uv-python and creates
 it is read-only, nothing is exported. Otherwise it sets `XDG_{CACHE,DATA,STATE}_HOME`, `TMPDIR`,
 `UV_CACHE_DIR`, `UV_PYTHON_INSTALL_DIR`, `UV_PROJECT_ENVIRONMENT`, `RUFF_CACHE_DIR`, `MYPY_CACHE_DIR`,
 `COVERAGE_FILE`, `PYTHONPYCACHEPREFIX`, `HF_HOME`, `TIKTOKEN_CACHE_DIR`, `NLTK_DATA`,
-`TRULENS_DATABASE_URL`, `TRIVY_CACHE_DIR`, `COLIMA_HOME`, `LIMA_HOME`, `DOCKER_HOST` and
-`DOCKER_CONFIG`, and disables Ragas, TruLens and Hugging Face telemetry. Tool config in
-`pyproject.toml` also points the pytest, ruff, mypy and coverage caches at `.cache/`, so they stay
-there even without direnv. Put personal overrides in `.envrc.local` (gitignored).
+`EVAL_OUTPUT_DIR` (run reports), `TRULENS_HOME`, `TRULENS_DATABASE_URL`, `TRIVY_CACHE_DIR`,
+`COLIMA_HOME`, `LIMA_HOME`, `DOCKER_HOST` and `DOCKER_CONFIG`, and disables Ragas, TruLens and
+Hugging Face telemetry. Tool config in `pyproject.toml` also points the pytest, ruff, mypy and
+coverage caches at `.cache/`, so they stay there even without direnv. Put personal overrides in
+`.envrc.local` (gitignored).
 
 ## Quality gates
 
