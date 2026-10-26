@@ -89,8 +89,8 @@ def _reject_constant(token: str) -> float:
 class HttpRAGClient:
     """Async HTTP client for an external RAG endpoint.
 
-    Fault mapping for the engine's retry loop: transport errors and HTTP 408/429/5xx
-    (except 501) raise :class:`~agentic_eval_benchmark.core.TransientError`; client
+    Fault mapping for the engine's retry loop: transport errors and HTTP 408, 429, 500,
+    502, 503, 504 and 529 raise :class:`~agentic_eval_benchmark.core.TransientError`; client
     timeouts raise :class:`TimeoutError`; other HTTP errors and responses that do not
     fit the mapping raise :class:`RAGClientError`. Redirects are not followed and the
     body is read with a hard size limit. Inject ``client`` (e.g. with an
