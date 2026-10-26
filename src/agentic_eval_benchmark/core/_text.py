@@ -10,7 +10,7 @@ from typing import Final
 
 _TOKEN_RE: Final = re.compile(r"\d+(?:[.,]\d+)*|[^\W\d_]+")
 _SPACE_RE: Final = re.compile(r"\s+")
-_CLAIM_SPLIT_RE: Final = re.compile(r"(?<=[.!?;])\s+|\n+")
+_SENTENCE_SPLIT_RE: Final = re.compile(r"(?<=[.!?;])\s+")
 _BULLET_RE: Final = re.compile(r"^\s*(?:[-*•]|\d+[.)])\s+")
 # Typographic quotes are folded to ASCII before matching (see normalize).
 _QUOTE_FOLD: Final = str.maketrans({0x2018: "'", 0x2019: "'", 0x201C: '"', 0x201D: '"'})
@@ -97,10 +97,12 @@ def split_claims(text: str) -> list[str]:
     """Split text into atomic statements (sentences, clauses after ``;``, bullet lines)
     and keep those with at least one content term."""
     claims: list[str] = []
-    for part in _CLAIM_SPLIT_RE.split(text):
-        claim = strip_edges(_BULLET_RE.sub("", part).strip())
-        if claim and content_terms(claim):
-            claims.append(claim)
+    for line in text.splitlines():
+        # Strip list markers first: "1. Step" must not split into "1" and "Step".
+        for part in _SENTENCE_SPLIT_RE.split(_BULLET_RE.sub("", line)):
+            claim = strip_edges(part.strip())
+            if claim and content_terms(claim):
+                claims.append(claim)
     return claims
 
 
