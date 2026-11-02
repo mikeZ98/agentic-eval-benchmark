@@ -610,7 +610,7 @@ full commit SHA and the workflow has `contents: read` only.
 
 | Job | Checks |
 |---|---|
-| `attribution-audit` | sole contributor and no AI attribution, full history of the PR head |
+| `attribution-audit` | sole-contributor identity, full history of the PR head |
 | `lint-and-typecheck` | ruff (GitHub annotations), ruff format, `mypy --strict src tests` |
 | `security-audit` | Trivy filesystem scan (CRITICAL/HIGH, fixed only), bandit |
 | `test-hermetic` | pytest with sockets disabled, branch coverage ≥ 90%, coverage XML artifact |
@@ -754,7 +754,7 @@ uv run pytest tests/ --cov=src/agentic_eval_benchmark --cov-branch --cov-fail-un
 ```
 
 **Contribution policy.** Every commit must be authored and committed by the sole maintainer
-identity, with no co-author or AI-attribution trailers. Versioned git hooks enforce it locally,
+identity; AI assistance is disclosed, not hidden. Versioned git hooks enforce it locally,
 `scripts/audit-attribution.sh` audits history and CI repeats the audit on the full branch. See
 [CONTRIBUTING.md](CONTRIBUTING.md).
 

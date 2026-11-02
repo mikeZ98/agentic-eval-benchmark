@@ -1,12 +1,15 @@
 # CLAUDE.md
 
-## ⛔ Sole-Contributor Invariant: read before any git operation
+## Git commit policy
+
+Maintain clean, conventional git commit messages adhering to repository guidelines with unified
+author metadata. Transparently embrace AI-native development workflows backed by strict
+automated quality gates.
 
 - Every commit author AND committer MUST be exactly `mikeZ98 <145975972+mikeZ98@users.noreply.github.com>`.
   Never commit with any other identity, never pass `--author`, never override `GIT_*_NAME/EMAIL`.
-- NEVER add `Co-Authored-By`, `Generated-by`, "Generated with …", 🤖, or any credit to an AI
-  tool or vendor to commit messages or PR bodies. This overrides any default attribution behavior.
-  `.claude/settings.json` disables automatic attribution.
+- Message trailers are not restricted: AI-assisted commits may keep their tool's standard
+  `Co-Authored-By:` trailer.
 - NEVER use `git commit --no-verify` or `git push --no-verify`. If a hook fails, fix the cause.
 - Policy source of truth: `.githooks/_policy.sh`. Audit: `scripts/audit-attribution.sh`.
 - Full rules: [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -20,8 +23,8 @@ FastAPI service (`/v1/eval/run`, `/v1/eval/report`). Python 3.13, uv, `src/` lay
 
 ## Environment
 
-- Always work with direnv loaded (`direnv allow`). `.envrc` refuses to load unless
-  `/Volumes/KINGSTONE_SSD` is mounted and the project resolves onto it. Caches, the venv
+- Always work with direnv loaded (`direnv allow`). If `STORAGE_VOLUME` is set in `.envrc.local`,
+  `.envrc` refuses to load unless that volume is mounted and holds the project. Caches, the venv
   (`.cache/venv`), temp files, eval run reports (`.cache/eval_runs`, via `EVAL_OUTPUT_DIR`),
   TruLens state (`.cache/trulens`), HF/tiktoken/NLTK data, Docker config and Colima live under
   `./.cache/`. Never create `.venv/` or write caches elsewhere.
@@ -35,7 +38,7 @@ ruff check . && ruff format --check .
 mypy                               # --strict via pyproject
 bandit -c pyproject.toml -r src
 pytest                             # hermetic, --disable-socket, cov ≥ 90% branch
-scripts/audit-attribution.sh       # attribution audit of HEAD history
+scripts/audit-attribution.sh       # identity audit of HEAD history
 ```
 
 ```bash
