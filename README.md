@@ -1,5 +1,12 @@
 # agentic-eval-benchmark
 
+[![CI](https://github.com/mikeZ98/agentic-eval-benchmark/actions/workflows/ci.yml/badge.svg)](https://github.com/mikeZ98/agentic-eval-benchmark/actions/workflows/ci.yml)
+[![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](pyproject.toml)
+[![Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](pyproject.toml)
+[![mypy strict](https://img.shields.io/badge/types-mypy%20strict-blue.svg)](pyproject.toml)
+[![Network-free tests](https://img.shields.io/badge/network--free-pytest--socket-brightgreen.svg)](pyproject.toml)
+[![Committer mikeZ98](https://img.shields.io/badge/committer-mikeZ98-lightgrey.svg)](https://github.com/mikeZ98/agentic-eval-benchmark/commits/main)
+
 LLM-as-a-Judge evaluation pipeline for retrieval-augmented generation (RAG) endpoints. It sends
 every question of a versioned Golden Dataset to the RAG system under test, scores the answers with
 an LLM judge (Ragas, TruLens) or a deterministic offline judge, and gates the run on
